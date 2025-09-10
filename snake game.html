@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Snake Game</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(to right, #1e3c72, #2a5298);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        h1 { margin-bottom: 10px; text-shadow: 2px 2px #000; }
+        #game-container { position: relative; }
+        #game-board {
+            border: 3px solid #fff;
+            background-color: #000;
+            box-shadow: 0 0 20px #000;
+        }
+        #score-display {
+            margin-top: 15px;
+            font-size: 22px;
+            font-weight: bold;
+        }
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 25px 35px;
+            border-radius: 12px;
+            text-align: center;
+            display: none;
+        }
+        #restart-btn {
+            margin-top: 15px;
+            padding: 10px 25px;
+            font-size: 16px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        #restart-btn:hover { background-color: #218838; }
+        .controls {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ddd;
+            text-align: center;
+        }
+        .paused { border: 3px dashed yellow; }
+    </style>
+</head>
+
+<body>
+    <h1>Snake Game</h1>
+    <div id="game-container">
+        <canvas id="game-board" width="400" height="400"></canvas>
+        <div id="game-over">
+            <h2>Game Over!</h2>
+            <p id="final-score">Score: 0</p>
+            <button id="restart-btn">Play Again</button>
+        </div>
+    </div>
+    <div id="score-display">Score: 0</div>
+    <div class="controls">
+        <p>Controls: Arrow Keys or W A S D &nbsp;|&nbsp; Space to Pause/Resume</p>
+    </div>
+    <div>
+        <div>
+            <label for="snakeColor">Snake Color: </label>
+            <input type="color" id="snakeColor" value="#00ff00">
+        </div>
+        <div>
+            <label for="gameLevel">Choose Level: </label>
+            <select id="gameLevel">
+                <option value="1">🍎 Fruit Frenzy</option>
+                <option value="2">🧱 Obstacle Course</option>
+                <option value="3">🌈 Color Chaos</option>
+            </select>
+        </div>
+        <div id="level-display">Level: Fruit Frenzy</div>
+        <label for="difficulty">Select Difficulty: </label>
+        <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+        </select>
+    </div>
+
+   
+    <script>
+        const canvas = document.getElementById('game-board');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display');
+        const gameOverDisplay = document.getElementById('game-over');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        const eatSound = document.getElementById('eat-sound');
+        const gameoverSound = document.getElementById('gameover-sound');
+        const snakeColorInput = document.getElementById('snakeColor');
+        const gameLevelSelect = document.getElementById('gameLevel');
+        const difficultySelector = document.getElementById('difficulty');
+        const levelDisplay = document.getElementById('level-display');
+        const levelNames = {
+            '1': '🍎 Fruit Frenzy',
+            '2': '🧱 Obstacle Course',
+            '3': '🌈 Color Chaos'
+        };
+
+        let boxSize = 20;
+        let snake = [];
+        let fruits = [];
+        let food = {};
+        let direction = 'right';
+        let nextDirection = 'right';
+        let score = 0;
+        let gameSpeed = 120;
+        let gameInterval;
+        let isPaused = false;
+        let gameLevel = '1';
+        let selectedDifficulty = 'medium';
+        let snakeColor = snakeColorInput.value;
+        let obstacles = [];
+
+        snakeColorInput.addEventListener('input', () => {
+            snakeColor = snakeColorInput.value;
+        });
+
+        gameLevelSelect.addEventListener('change', () => {
+            gameLevel = gameLevelSelect.value;
+            levelDisplay.textContent = `Level: ${levelNames[gameLevel]}`;
+        });
+
+        function createObstacles(count = 5) {
+            obstacles = [];
+            for (let i = 0; i < count; i++) {
+                let obs = {
+                    x: Math.floor(Math.random() * (canvas.width / boxSize)) * boxSize,
+                    y: Math.floor(Math.random() * (canvas.height / boxSize)) * boxSize
+                };
+                if (snake.some(s => s.x === obs.x && s.y === obs.y)) {
+                    i--;
+                } else {
+                    obstacles.push(obs);
+                }
+            }
+        }
+
+        function createMultipleFruits(count = 3) {
+            fruits = [];
+            for (let i = 0; i < count; i++) {
+                fruits.push(generateFruit());
+            }
+        }
+
+        function generateFruit() {
+            let fruit;
+            do {
+                fruit = {
+                    x: Math.floor(Math.random() * (canvas.width / boxSize)) * boxSize,
+                    y: Math.floor(Math.random() * (canvas.height / boxSize)) * boxSize
+                };
+            } while (snake.some(s => s.x === fruit.x && s.y === fruit.y));
+            return fruit;
+        }
+
+        function createFood() {
+            food = generateFruit();
+        }
+
+        function initGame() {
+            gameLevel = gameLevelSelect.value;
+            selectedDifficulty = difficultySelector.value;
+            gameSpeed = selectedDifficulty === 'easy' ? 200 : selectedDifficulty === 'medium' ? 120 : 80;
+            snake = [
+                { x: 9 * boxSize, y: 10 * boxSize },
+                { x: 8 * boxSize, y: 10 * boxSize },
+                { x: 7 * boxSize, y: 10 * boxSize }
+            ];
+            direction = 'right';
+            nextDirection = 'right';
+            score = 0;
+            isPaused = false;
+
+            if (gameLevel === '1') {
+                createMultipleFruits(3);
+                obstacles = [];
+            } else if (gameLevel === '2') {
+                createObstacles(5);
+                createFood();
+                fruits = [];
+            } else if (gameLevel === '3') {
+                createObstacles(5);
+                createMultipleFruits(3);
+            }
+
+            scoreDisplay.textContent = `Score: ${score}`;
+            gameOverDisplay.style.display = 'none';
+            canvas.classList.remove('paused');
+            clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, gameSpeed);
+        }
+
+        function gameLoop() {
+            if (isPaused) return;
+            direction = nextDirection;
+            const head = { x: snake[0].x, y: snake[0].y };
+
+            if (direction === 'up') head.y -= boxSize;
+            if (direction === 'down') head.y += boxSize;
+            if (direction === 'left') head.x -= boxSize;
+            if (direction === 'right') head.x += boxSize;
+
+            if (
+                head.x < 0 || head.x >= canvas.width ||
+                head.y < 0 || head.y >= canvas.height ||
+                snake.some(segment => segment.x === head.x && segment.y === head.y) ||
+                obstacles.some(o => o.x === head.x && o.y === head.y)
+            ) {
+                gameOver();
+                return;
+            }
+
+            snake.unshift(head);
+            let ate = false;
+
+            if (gameLevel === '1' || gameLevel === '3') {
+                fruits.forEach((f, i) => {
+                    if (head.x === f.x && head.y === f.y) {
+                        score++;
+                        fruits[i] = generateFruit();
+                        ate = true;
+                        eatSound.play();
+                    }
+                });
+            } else if (head.x === food.x && head.y === food.y) {
+                score++;
+                createFood();
+                ate = true;
+                eatSound.play();
+            }
+
+            if (!ate) snake.pop();
+            scoreDisplay.textContent = `Score: ${score}`;
+            draw();
+        }
+
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (gameLevel === '3') {
+                const colors = ['#e74c3c', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6'];
+                snake.forEach((segment, i) => {
+                    ctx.fillStyle = colors[i % colors.length];
+                    ctx.fillRect(segment.x, segment.y, boxSize, boxSize);
+                    ctx.strokeStyle = '#111';
+                    ctx.strokeRect(segment.x, segment.y, boxSize, boxSize);
+                });
+            } else {
+                snake.forEach((segment, i) => {
+                    ctx.fillStyle = i === 0 ? snakeColor : snakeColor;
+                    ctx.fillRect(segment.x, segment.y, boxSize, boxSize);
+                    ctx.strokeStyle = '#111';
+                    ctx.strokeRect(segment.x, segment.y, boxSize, boxSize);
+                });
+            }
+
+            ctx.fillStyle = 'red';
+            if (gameLevel === '1' || gameLevel === '3') {
+                fruits.forEach(fruit => {
+                    ctx.beginPath();
+                    ctx.arc(fruit.x + boxSize / 2, fruit.y + boxSize / 2, boxSize / 2.5, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            } else {
+                ctx.beginPath();
+                ctx.arc(food.x + boxSize / 2, food.y + boxSize / 2, boxSize / 2.5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = 'gray';
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, boxSize, boxSize);
+            });
+        }
+
+        function gameOver() {
+            clearInterval(gameInterval);
+            finalScoreDisplay.textContent = `Score: ${score}`;
+            gameOverDisplay.style.display = 'block';
+            gameoverSound.play();
+        }
+
+        document.addEventListener('keydown', e => {
+            const key = e.key.toLowerCase();
+            if (key === ' ') {
+                isPaused = !isPaused;
+                canvas.classList.toggle('paused');
+            }
+            if (key === 'arrowup' || key === 'w') {
+                if (direction !== 'down') nextDirection = 'up';
+            } else if (key === 'arrowdown' || key === 's') {
+                if (direction !== 'up') nextDirection = 'down';
+            } else if (key === 'arrowleft' || key === 'a') {
+                if (direction !== 'right') nextDirection = 'left';
+            } else if (key === 'arrowright' || key === 'd') {
+                if (direction !== 'left') nextDirection = 'right';
+            }
+        });
+
+        restartBtn.addEventListener('click', initGame);
+        initGame();
+    </script>
+</body>
+
+</html>
