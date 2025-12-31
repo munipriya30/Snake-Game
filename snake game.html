@@ -6,7 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Snake Game</title>
     <style>
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             display: flex;
             flex-direction: column;
@@ -18,18 +21,28 @@
             color: #fff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        h1 { margin-bottom: 10px; text-shadow: 2px 2px #000; }
-        #game-container { position: relative; }
+
+        h1 {
+            margin-bottom: 10px;
+            text-shadow: 2px 2px #000;
+        }
+
+        #game-container {
+            position: relative;
+        }
+
         #game-board {
             border: 3px solid #fff;
             background-color: #000;
             box-shadow: 0 0 20px #000;
         }
+
         #score-display {
             margin-top: 15px;
             font-size: 22px;
             font-weight: bold;
         }
+
         #game-over {
             position: absolute;
             top: 50%;
@@ -42,6 +55,7 @@
             text-align: center;
             display: none;
         }
+
         #restart-btn {
             margin-top: 15px;
             padding: 10px 25px;
@@ -52,18 +66,52 @@
             border-radius: 8px;
             cursor: pointer;
         }
-        #restart-btn:hover { background-color: #218838; }
+
+        #restart-btn:hover {
+            background-color: #218838;
+        }
+
         .controls {
             margin-top: 20px;
             font-size: 14px;
             color: #ddd;
             text-align: center;
         }
-        .paused { border: 3px dashed yellow; }
+
+        .paused {
+            border: 3px dashed yellow;
+        }
+
+        #mobile-controls {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .ctrl {
+            width: 60px;
+            height: 60px;
+            font-size: 22px;
+            margin: 5px;
+            border-radius: 12px;
+            border: none;
+            background: #ffffffcc;
+            cursor: pointer;
+        }
+
+        .ctrl:active {
+            background: #f1c40f;
+        }
+
+        /* Show controls only on mobile */
+        @media (max-width: 768px) {
+            #mobile-controls {
+                display: block;
+            }
+        }
     </style>
 </head>
 
-<body>
+<body >
     <h1>Snake Game</h1>
     <div id="game-container">
         <canvas id="game-board" width="400" height="400"></canvas>
@@ -77,6 +125,17 @@
     <div class="controls">
         <p>Controls: Arrow Keys or W A S D &nbsp;|&nbsp; Space to Pause/Resume</p>
     </div>
+    <audio id="eat-sound" src="eat.mp3"></audio>
+<audio id="gameover-sound" src="gameover.mp3"></audio>
+ <!-- Mobile Controls -->
+        <div id="mobile-controls">
+            <button class="ctrl up">⬆</button>
+            <div>
+                <button class="ctrl left">⬅</button>
+                <button class="ctrl down">⬇</button>
+                <button class="ctrl right">➡</button>
+            </div>
+        </div>
     <div>
         <div>
             <label for="snakeColor">Snake Color: </label>
@@ -99,7 +158,7 @@
         </select>
     </div>
 
-   
+
     <script>
         const canvas = document.getElementById('game-board');
         const ctx = canvas.getContext('2d');
@@ -242,7 +301,8 @@
                         score++;
                         fruits[i] = generateFruit();
                         ate = true;
-                        eatSound.play();
+                        if (eatSound) eatSound.play();
+
                     }
                 });
             } else if (head.x === food.x && head.y === food.y) {
@@ -256,6 +316,7 @@
             scoreDisplay.textContent = `Score: ${score}`;
             draw();
         }
+       
 
         function draw() {
             ctx.fillStyle = '#000';
@@ -301,7 +362,8 @@
             clearInterval(gameInterval);
             finalScoreDisplay.textContent = `Score: ${score}`;
             gameOverDisplay.style.display = 'block';
-            gameoverSound.play();
+            if (gameoverSound) gameoverSound.play();
+
         }
 
         document.addEventListener('keydown', e => {
@@ -322,6 +384,20 @@
         });
 
         restartBtn.addEventListener('click', initGame);
+        // Mobile Controls Logic
+        document.querySelector('.up').addEventListener('click', () => {
+            if (direction !== 'down') nextDirection = 'up';
+        });
+        document.querySelector('.down').addEventListener('click', () => {
+            if (direction !== 'up') nextDirection = 'down';
+        });
+        document.querySelector('.left').addEventListener('click', () => {
+            if (direction !== 'right') nextDirection = 'left';
+        });
+        document.querySelector('.right').addEventListener('click', () => {
+            if (direction !== 'left') nextDirection = 'right';
+        });
+
         initGame();
     </script>
 </body>
